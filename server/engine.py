@@ -2,20 +2,93 @@
 """
 离线翻译引擎封装。
 
-底层用 Argos Translate（CTranslate2 + SentencePiece），模型全部落盘在 ../models，
+底层用 Argos Translate（CTranslate2 + SentencePiece），模型全部落盘在本地，
 安装完成后拔网线也能用。
 """
 from __future__ import annotations
 
 import os
 import re
+import shutil
 import threading
 from collections import OrderedDict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MODEL_DIR = ROOT / "models"
+
+
+def _pick_model_dir() -> Path:
+    """挑一个原生库能打开的模型目录。
+
+    sentencepiece / ctranslate2 的 Windows 版本用 ANSI 接口打开文件，
+    路径里一旦有中文（哪怕文件确实存在）就会抛 NOT_FOUND，
+    所以项目放在中文目录时，模型必须挪到纯 ASCII 路径下。
+
+    优先级：环境变量 > 根目录 model_dir.txt > <项目>/models > %LOCALAPPDATA%
+    """
+    candidates: list[Path] = []
+
+    env = os.environ.get("OFFLINE_TRANSLATOR_MODEL_DIR", "").strip()
+    if env:
+        candidates.append(Path(env))
+
+    cfg = ROOT / "model_dir.txt"
+    if cfg.is_file():
+        try:
+            first = cfg.read_text(encoding="utf-8").strip().splitlines()
+            if first and first[0].strip():
+                candidates.append(Path(first[0].strip()))
+        except OSError:
+            pass
+
+    candidates.append(ROOT / "models")
+    base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".local" / "share")
+    candidates.append(Path(base) / "offline-translator" / "models")
+
+    for path in candidates:
+        if str(path).isascii():
+            return path
+    return candidates[-1]
+
+
+MODEL_DIR = _pick_model_dir()
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
+# 模型目录是否可用（含中文路径时原生库会读不了文件）
+MODEL_DIR_OK = MODEL_DIR.is_dir() and str(MODEL_DIR).isascii()
+
+
+def _migrate_legacy_models() -> None:
+    """把项目内 models/ 里已有的模型搬到新的模型目录（图省事，只做一次）。"""
+    legacy = ROOT / "models"
+    if legacy == MODEL_DIR or not legacy.is_dir():
+        return
+    if any(MODEL_DIR.iterdir()):
+        return
+    moved = []
+    for item in legacy.iterdir():
+        if item.name.startswith("."):
+            continue
+        dst = MODEL_DIR / item.name
+        try:
+            shutil.move(str(item), str(dst))
+            moved.append(item.name)
+            continue
+        except (OSError, shutil.Error):
+            pass
+        # 跨盘 move 失败时退化成「复制」，宁可多留一份也不丢模型
+        try:
+            if item.is_dir():
+                shutil.copytree(str(item), str(dst), dirs_exist_ok=True)
+            else:
+                shutil.copy2(str(item), str(dst))
+            moved.append(item.name + "(已复制，原文件保留)")
+        except (OSError, shutil.Error):
+            pass
+    if moved:
+        print(f"[engine] 已迁移模型到 {MODEL_DIR}: {', '.join(moved)}")
+
+
+_migrate_legacy_models()
 
 # argostranslate 会读这些环境变量，必须在 import 之前设置
 # 注意：模型目录的变量名是 ARGOS_PACKAGES_DIR（复数），写成单数会被忽略

@@ -77,8 +77,30 @@ offline-translator/
 ├── tools/
 │   ├── download_models.py    预下载模型
 │   └── make_icons.py         生成图标
-└── models/                   模型权重（不入库）
+└── models/                   模型权重（不入库；路径含中文时见下方「模型放哪」）
 ```
+
+## 模型放哪
+
+`sentencepiece` / `ctranslate2` 的 Windows 原生库用 ANSI 接口打开文件，
+**路径里带中文就会报 `NOT_FOUND`**（哪怕文件确实存在）。所以模型目录会自动避让：
+
+1. 环境变量 `OFFLINE_TRANSLATOR_MODEL_DIR`
+2. 项目根目录的 `model_dir.txt`（只写一行绝对路径）
+3. `<项目>/models` —— 仅当项目路径是纯英文时
+4. `%LOCALAPPDATA%\offline-translator\models` —— 兜底
+
+当前选中的目录可以直接查：
+
+```bash
+curl -s http://127.0.0.1:8765/health
+# {"model_dir":"C:\\Users\\<你>\\AppData\\Local\\offline-translator\\models","model_dir_ok":true, ...}
+```
+
+想把模型放回 D 盘，就建个 `D:\ot-models`，在项目根目录写 `model_dir.txt` 内容为 `D:\ot-models`，
+再把模型文件夹整体挪过去即可。
+
+> 只有**模型目录**需要纯英文，项目代码、扩展目录放中文路径都没问题。
 
 ## HTTP 接口
 
@@ -133,6 +155,14 @@ Argos 用的是 OPUS-MT 级别的小模型（约 100MB/语言对），胜在完�
 
 **能翻译整页吗**
 目前是划词 / 选中段落。整页翻译需要 DOM 遍历和批量接口，没有做。
+
+**报错 `NOT_FOUND ... sentencepiece.model`**
+模型目录在中文路径下。看上面「模型放哪」，把模型挪到纯英文目录，或在项目根写 `model_dir.txt`。
+`%LOCALAPPDATA%\offline-translator\models` 是自动兜底位置，正常不会踩到。
+
+**整个项目换盘 / 改目录后不能用了**
+`.venv` 可以整体搬（里面记录的是解释器位置，不是项目位置），搬完直接跑 `start.bat` 即可。
+只有一种情况要重装：换了 Python 解释器版本。
 
 ## 隐私
 

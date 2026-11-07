@@ -52,7 +52,8 @@ def health():
         engine="argos-ctranslate2",
         offline=True,
         pairs=len(pairs),
-        pid=None,
+        model_dir=str(engine.MODEL_DIR),
+        model_dir_ok=engine.MODEL_DIR_OK,
         version="1.0.0",
     )
 
