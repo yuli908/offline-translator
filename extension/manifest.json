@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "离线翻译 · Offline Translator",
+  "version": "1.0.0",
+  "description": "划词即译，调用本机 Argos Translate 服务，全程离线不联网。",
+  "permissions": ["contextMenus", "storage", "activeTab"],
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "离线翻译",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "commands": {
+    "translate-selection": {
+      "suggested_key": { "default": "Alt+T" },
+      "description": "翻译当前选中的文本"
+    }
+  }
+}

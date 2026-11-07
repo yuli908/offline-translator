@@ -1,0 +1,15 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 离线模型（体积大，不入库；由 install.bat / 启动时自动下载）
+models/*
+!models/.gitkeep
+
+# 运行时
+*.log
+logs/
+.DS_Store
+Thumbs.db
